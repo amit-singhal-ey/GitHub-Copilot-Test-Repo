@@ -20,12 +20,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // build participants list markup
+        // build participants list markup (with remove icons)
+        const participantList = details.participants.length
+          ? `<ul class="participant-list">${details.participants
+              .map(
+                (p) =>
+                  `<li class="participant-item"><span class="email">${p}</span><button class="remove" data-activity="${name}" data-email="${p}">&times;</button></li>`
+              )
+              .join('')}</ul>`
+          : '<p class="no-participants"><em>No one has signed up yet.</em></p>';
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants">
+            <strong>Participants:</strong>
+            ${participantList}
+          </div>
         `;
+
+        // attach remove handlers for any delete buttons just added
+        activityCard.querySelectorAll('.remove').forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            const activityName = e.target.dataset.activity;
+            const emailToRemove = e.target.dataset.email;
+            try {
+              const resp = await fetch(
+                `/activities/${encodeURIComponent(activityName)}/signup?email=${encodeURIComponent(emailToRemove)}`,
+                { method: 'DELETE' }
+              );
+              if (resp.ok) {
+                // refresh list to reflect removal
+                fetchActivities();
+              } else {
+                const err = await resp.json();
+                console.error('Failed to remove participant', err);
+              }
+            } catch (err) {
+              console.error('Error removing participant', err);
+            }
+          });
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +100,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // refresh activities to show new participant and updated spot count
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
